@@ -7,10 +7,15 @@ import { useHistoryStore } from './historyStore'
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<Message[]>([])
   const isStreaming = ref(false)
+  const currentConversationId = ref<string | null>(null)
   let abortController: AbortController | null = null
 
   async function send(text: string) {
     if (!text.trim() || isStreaming.value) return
+
+    if (currentConversationId.value === null) {
+      currentConversationId.value = crypto.randomUUID()
+    }
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -74,6 +79,7 @@ export const useChatStore = defineStore('chat', () => {
 
   function clearMessages() {
     messages.value = []
+    currentConversationId.value = null
   }
 
   function saveToHistory() {
@@ -85,7 +91,7 @@ export const useChatStore = defineStore('chat', () => {
       .slice(0, 20) || '新对话'
 
     historyStore.saveConversation({
-      id: crypto.randomUUID(),
+      id: currentConversationId.value!,
       title,
       createdAt: Date.now(),
       messages: messages.value.map(m => ({ ...m }))
@@ -94,11 +100,13 @@ export const useChatStore = defineStore('chat', () => {
 
   function loadFromConversation(conv: Conversation) {
     messages.value = conv.messages.map(m => ({ ...m }))
+    currentConversationId.value = conv.id
   }
 
   return {
     messages,
     isStreaming,
+    currentConversationId,
     send,
     stopStreaming,
     clearMessages,
