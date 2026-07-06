@@ -108,7 +108,7 @@ export default defineConfig({
 {
   "compilerOptions": {
     "target": "ES2020",
-    "useDefineForEmit": true,
+    "useDefineForClassFields": true,
     "module": "ESNext",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
