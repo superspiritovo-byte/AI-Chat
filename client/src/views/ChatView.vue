@@ -189,6 +189,7 @@ async function handleSend(text: string) {
     <ChatInput
       :disabled="false"
       :is-streaming="store.isStreaming"
+      :has-files="pendingFiles.length > 0"
       @send="handleSend"
       @stop="store.stopStreaming"
       @upload="handleUpload"

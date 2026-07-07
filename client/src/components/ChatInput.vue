@@ -4,6 +4,7 @@ import { ref } from 'vue'
 const props = defineProps<{
   disabled: boolean
   isStreaming: boolean
+  hasFiles: boolean
 }>()
 
 const emit = defineEmits<{
@@ -17,7 +18,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 
 function handleSend() {
   const text = inputText.value.trim()
-  if (!text || props.disabled) return
+  if ((!text && !props.hasFiles) || props.disabled) return
   emit('send', text)
   inputText.value = ''
 }
@@ -71,7 +72,7 @@ function handleFileChange(event: Event) {
         <el-button
           v-if="!isStreaming"
           type="primary"
-          :disabled="!inputText.trim() || disabled"
+          :disabled="(!inputText.trim() && !hasFiles) || disabled"
           @click="handleSend"
         >
           发送
