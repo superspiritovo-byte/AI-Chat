@@ -106,26 +106,18 @@ function readAsText(file: File): Promise<string> {
 
 async function renderPDF(file: File): Promise<string> {
   const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/pdf.worker.min.mjs`
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
-  const totalPages = Math.min(pdf.numPages, 20) // 最多20页
-  const images: string[] = []
-
-  for (let i = 1; i <= totalPages; i++) {
-    const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 1.5 })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    await page.render({ canvas, viewport }).promise
-    images.push(canvas.toDataURL('image/png'))
-  }
-
-  // 多页拼接为一个 base64（DeepSeek Vision 逐个处理）
-  return images[0] // 先返回首页，后续可扩展多页支持
+  const page = await pdf.getPage(1)
+  const viewport = page.getViewport({ scale: 1.5 })
+  const canvas = document.createElement('canvas')
+  canvas.width = viewport.width
+  canvas.height = viewport.height
+  await page.render({ canvas, viewport }).promise
+  return canvas.toDataURL('image/png')
 }
 
 async function extractDocx(file: File): Promise<string> {
