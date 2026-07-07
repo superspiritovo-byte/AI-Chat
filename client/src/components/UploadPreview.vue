@@ -23,6 +23,7 @@ function isImage(mimeType: string): boolean {
 
 <template>
   <div v-if="files.length > 0" class="upload-preview">
+    <button class="clear-all-btn" @click="emit('clear')">清除全部</button>
     <div
       v-for="(file, index) in files"
       :key="file.id"
@@ -55,12 +56,31 @@ function isImage(mimeType: string): boolean {
 
 <style scoped>
 .upload-preview {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 16px;
   border-top: 1px solid #ebeef5;
   background: #fafafa;
+}
+
+.clear-all-btn {
+  position: absolute;
+  top: 4px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #909399;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.clear-all-btn:hover {
+  color: #f56c6c;
+  background: #fef0f0;
 }
 
 .preview-item {
