@@ -8,6 +8,10 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+// DeepSeek API 配置
+const DEEPSEEK_BASE = 'https://api.deepseek.com'
+const MODEL = 'deepseek-chat'
+
 app.post('/api/chat', async (req, res) => {
   const { messages, systemPrompt } = req.body
 
@@ -22,31 +26,44 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no')
 
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    const apiKey = process.env.DEEPSEEK_API_KEY
     if (!apiKey) {
-      res.write(`data: ${JSON.stringify({ type: 'error', message: '服务端未配置 API Key' })}\n\n`)
+      res.write(`data: ${JSON.stringify({ type: 'error', message: '服务端未配置 DEEPSEEK_API_KEY' })}\n\n`)
       res.end()
       return
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // 构建 OpenAI 兼容的消息格式
+    const apiMessages: { role: string; content: string | any[] }[] = []
+    if (systemPrompt) {
+      apiMessages.push({ role: 'system', content: systemPrompt })
+    }
+
+    for (const m of messages) {
+      if (m.role === 'user') {
+        // content 可能是 string（纯文本）或 array（多模态）
+        apiMessages.push({ role: 'user', content: m.content })
+      } else if (m.role === 'assistant') {
+        apiMessages.push({ role: 'assistant', content: m.content })
+      }
+    }
+
+    const response = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: MODEL,
         max_tokens: 4096,
-        system: systemPrompt || '你是一个有帮助的助手',
-        messages: messages.filter((m: any) => m.role === 'user' || m.role === 'assistant'),
+        messages: apiMessages,
         stream: true
       })
     })
 
     if (!response.ok) {
-      const errBody = await response.json().catch(() => ({ error: { message: `API 返回 ${response.status}` } }))
+      const errBody: any = await response.json().catch(() => ({ error: { message: `API 返回 ${response.status}` } }))
       res.write(`data: ${JSON.stringify({ type: 'error', message: errBody.error?.message || 'API 请求失败' })}\n\n`)
       res.end()
       return
@@ -69,14 +86,21 @@ app.post('/api/chat', async (req, res) => {
         if (!trimmed || !trimmed.startsWith('data:')) continue
 
         const jsonStr = trimmed.slice(5).trim()
-        if (!jsonStr) continue
+        if (jsonStr === '[DONE]') {
+          res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+          continue
+        }
 
         try {
           const event = JSON.parse(jsonStr)
+          const delta = event.choices?.[0]?.delta
 
-          if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-            res.write(`data: ${JSON.stringify({ type: 'content', text: event.delta.text })}\n\n`)
-          } else if (event.type === 'message_stop') {
+          if (delta?.content) {
+            res.write(`data: ${JSON.stringify({ type: 'content', text: delta.content })}\n\n`)
+          }
+
+          // finish_reason 表示流结束
+          if (event.choices?.[0]?.finish_reason) {
             res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
           }
         } catch {
@@ -96,4 +120,5 @@ app.post('/api/chat', async (req, res) => {
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`AI Chat proxy server running on http://localhost:${PORT}`)
+  console.log(`Using DeepSeek API (model: ${MODEL})`)
 })
