@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { watch, nextTick, ref } from 'vue'
 import { useChatStore } from '../stores/chatStore'
+import type { MessageContentPart } from '../types/chat'
 import ChatMessage from '../components/ChatMessage.vue'
 import ChatInput from '../components/ChatInput.vue'
 import ChatWelcome from '../components/ChatWelcome.vue'
 
 const store = useChatStore()
 const messageListRef = ref<HTMLElement | null>(null)
+
+function handleSend(text: string) {
+  const contentParts: MessageContentPart[] = [{ type: 'text', text }]
+  store.send(contentParts)
+}
 
 function scrollToBottom() {
   nextTick(() => {
@@ -31,7 +37,7 @@ watch(() => {
     <div class="message-list" ref="messageListRef">
       <ChatWelcome
         v-if="store.messages.length === 0"
-        @send="store.send"
+        @send="handleSend"
       />
       <ChatMessage
         v-for="msg in store.messages"
@@ -42,7 +48,7 @@ watch(() => {
     <ChatInput
       :disabled="false"
       :is-streaming="store.isStreaming"
-      @send="store.send"
+      @send="handleSend"
       @stop="store.stopStreaming"
     />
   </div>
