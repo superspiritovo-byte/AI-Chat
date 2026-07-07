@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Message, Conversation } from '../types/chat'
+import type { Message, MessageContentPart, Conversation } from '../types/chat'
 import { sendMessage } from '../api/chatApi'
 import { useHistoryStore } from './historyStore'
 
@@ -10,17 +10,27 @@ export const useChatStore = defineStore('chat', () => {
   const currentConversationId = ref<string | null>(null)
   let abortController: AbortController | null = null
 
-  async function send(text: string) {
-    if (!text.trim() || isStreaming.value) return
+  async function send(contentParts: MessageContentPart[]) {
+    if (contentParts.length === 0 || isStreaming.value) return
 
     if (currentConversationId.value === null) {
       currentConversationId.value = crypto.randomUUID()
     }
 
+    // 构建纯文本（用于历史标题和显示）
+    const textParts = contentParts
+      .filter(p => p.type === 'text')
+      .map(p => p.text || '')
+      .join(' ')
+    const hasFiles = contentParts.some(p => p.type !== 'text')
+
+    const displayText = textParts || (hasFiles ? '[发送了文件]' : '')
+
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: text,
+      content: displayText,
+      userContent: hasFiles ? [...contentParts] : undefined,
       timestamp: Date.now()
     }
     messages.value.push(userMsg)
@@ -32,27 +42,32 @@ export const useChatStore = defineStore('chat', () => {
       timestamp: Date.now()
     }
     messages.value.push(assistantMsg)
+    const msgIndex = messages.value.length - 1
 
     isStreaming.value = true
     abortController = new AbortController()
 
-    const apiMessages = messages.value
-      .filter(m => m.content !== '')
-      .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+    // 构建 API 消息历史（纯文本）+ 当前消息（多模态）
+    const historyMessages: { role: string; content: string }[] = []
+    for (const m of messages.value.slice(0, -2)) {
+      // assistant 的历史消息始终是纯文本
+      historyMessages.push({ role: m.role, content: m.content })
+    }
 
     try {
       await sendMessage(
-        apiMessages,
-        (text) => {
-          assistantMsg.content += text
+        contentParts,
+        historyMessages,
+        (text: string) => {
+          messages.value[msgIndex].content += text
         },
         () => {
           isStreaming.value = false
           abortController = null
           saveToHistory()
         },
-        (error) => {
-          assistantMsg.content = `[错误] ${error}`
+        (error: string) => {
+          messages.value[msgIndex].content = `[错误] ${error}`
           isStreaming.value = false
           abortController = null
         },
@@ -60,9 +75,9 @@ export const useChatStore = defineStore('chat', () => {
       )
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        // User stopped; keep whatever content we got
+        // User stopped
       } else {
-        assistantMsg.content = assistantMsg.content || '[连接失败，请重试]'
+        messages.value[msgIndex].content = messages.value[msgIndex].content || '[连接失败，请重试]'
       }
       isStreaming.value = false
       abortController = null
