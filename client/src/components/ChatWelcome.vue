@@ -12,8 +12,8 @@ const examplePrompts = [
 
 <template>
   <div class="welcome">
-    <h2>AI Chat</h2>
-    <p class="subtitle">基于 Claude API 的智能对话助手</p>
+    <h2>灵犀</h2>
+    <p class="subtitle">能看懂图片和文档的 AI 助手</p>
     <div class="examples">
       <p class="examples-label">试试这些：</p>
       <el-button

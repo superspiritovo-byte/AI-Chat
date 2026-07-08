@@ -1,12 +1,13 @@
-# AI Chat
+# 灵犀 AI Chat
 
-基于 Vue3 + TypeScript + Pinia + Claude API 的 AI 聊天应用。
+基于 Vue3 + TypeScript + Pinia + DeepSeek API 的多模态 AI 聊天应用。支持图片识别和文档分析。
 
 ## 技术栈
 
 - **前端:** Vue 3.4 + TypeScript + Pinia + Element Plus + Vue Router 4 + Vite 5
 - **后端代理:** Express 4 + TypeScript
-- **AI 接口:** Anthropic Claude Messages API（SSE 流式响应）
+- **AI 接口:** DeepSeek Chat API（SSE 流式响应 + Vision 多模态识别）
+- **文档处理:** pdfjs-dist + mammoth.js
 
 ## 快速开始
 
@@ -16,10 +17,10 @@
 cp server/.env.example server/.env
 ```
 
-编辑 `server/.env`，填入你的 Anthropic API Key：
+编辑 `server/.env`，填入你的 DeepSeek API Key：
 
 ```
-ANTHROPIC_API_KEY=sk-ant-xxx
+DEEPSEEK_API_KEY=your-deepseek-api-key-here
 ```
 
 ### 2. 启动后端代理
@@ -65,6 +66,8 @@ npm run dev
 
 - 流式 AI 对话（SSE）
 - Markdown 渲染（代码高亮）
+- 图片上传识别（Vision API）
+- 文档上传分析（PDF / Word / 文本）
 - 对话历史本地存储
 - 多会话管理
 - 停止生成 / 错误重试
