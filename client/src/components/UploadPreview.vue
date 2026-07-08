@@ -16,8 +16,8 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function isImage(mimeType: string): boolean {
-  return mimeType.startsWith('image/')
+function isImage(file: PendingFile): boolean {
+  return file.mimeType.startsWith('image/') && !!file.data && file.data.startsWith('data:image/')
 }
 </script>
 
@@ -31,7 +31,7 @@ function isImage(mimeType: string): boolean {
       :class="{ 'is-error': file.status === 'error' }"
     >
       <!-- 图片预览 -->
-      <div v-if="isImage(file.mimeType) && file.status === 'ready'" class="preview-thumb">
+      <div v-if="isImage(file) && file.status === 'ready'" class="preview-thumb">
         <img :src="file.data" :alt="file.name" />
       </div>
       <!-- 文件图标 -->

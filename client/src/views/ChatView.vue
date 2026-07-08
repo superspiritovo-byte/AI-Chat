@@ -59,14 +59,18 @@ async function handleUpload(files: FileList) {
     const fileIndex = pendingFiles.value.length - 1
 
     try {
-      if (file.type.startsWith('image/')) {
-        // 图片 → base64
-        const data = await readAsDataURL(file)
-        pendingFiles.value[fileIndex] = { ...pendingFile, status: 'ready', data }
+      // 图片检测：MIME type 或文件扩展名回退
+      const isImage = file.type.startsWith('image/') ||
+        /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(file.name)
+
+      if (isImage) {
+        // 图片 → OCR 提取文字
+        const text = await extractImageText(file)
+        pendingFiles.value[fileIndex] = { ...pendingFile, status: 'ready', data: text }
       } else if (file.name.endsWith('.pdf')) {
-        // PDF → 渲染为图片
-        const data = await renderPDF(file)
-        pendingFiles.value[fileIndex] = { ...pendingFile, mimeType: 'image/png', status: 'ready', data }
+        // PDF → 直接提取文本
+        const text = await extractPDFText(file)
+        pendingFiles.value[fileIndex] = { ...pendingFile, status: 'ready', data: text }
       } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
         // Word → 提取文本
         const text = await extractDocx(file)
@@ -86,15 +90,6 @@ async function handleUpload(files: FileList) {
   }
 }
 
-function readAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('文件读取失败'))
-    reader.readAsDataURL(file)
-  })
-}
-
 function readAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -104,20 +99,41 @@ function readAsText(file: File): Promise<string> {
   })
 }
 
-async function renderPDF(file: File): Promise<string> {
+async function extractImageText(file: File): Promise<string> {
+  const Tesseract = (await import('tesseract.js')).default
+  const imageUrl = URL.createObjectURL(file)
+  try {
+    const result = await Tesseract.recognize(imageUrl, 'chi_sim+eng')
+    return result.data.text.slice(0, 10000)
+  } finally {
+    URL.revokeObjectURL(imageUrl)
+  }
+}
+
+async function extractPDFText(file: File): Promise<string> {
   const pdfjsLib = await import('pdfjs-dist')
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/pdf.worker.min.mjs`
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
-  const page = await pdf.getPage(1)
-  const viewport = page.getViewport({ scale: 1.5 })
-  const canvas = document.createElement('canvas')
-  canvas.width = viewport.width
-  canvas.height = viewport.height
-  await page.render({ canvas, viewport }).promise
-  return canvas.toDataURL('image/png')
+  const MAX_PAGES = 20
+  const pageCount = Math.min(pdf.numPages, MAX_PAGES)
+  const pageTexts: string[] = []
+
+  for (let i = 1; i <= pageCount; i++) {
+    const page = await pdf.getPage(i)
+    const textContent = await page.getTextContent()
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(' ')
+      .trim()
+    if (pageText) {
+      pageTexts.push(`[第${i}页] ${pageText}`)
+    }
+  }
+
+  return pageTexts.join('\n').slice(0, 10000) // 限制文本长度
 }
 
 async function extractDocx(file: File): Promise<string> {
@@ -143,10 +159,11 @@ async function handleSend(text: string) {
   for (const file of pendingFiles.value) {
     if (file.status === 'error') continue
 
-    if (file.mimeType.startsWith('image/')) {
+    // 检查是否为实际图片 data URL（base64 编码的图片）
+    if (file.data && file.data.startsWith('data:image/')) {
       parts.push({
         type: 'image_url',
-        image_url: { url: file.data || '' }
+        image_url: { url: file.data }
       })
     } else {
       parts.push({

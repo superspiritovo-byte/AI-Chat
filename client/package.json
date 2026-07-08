@@ -15,6 +15,7 @@
     "marked": "^13.0.0",
     "pdfjs-dist": "^6.1.200",
     "pinia": "^2.1.0",
+    "tesseract.js": "^7.0.0",
     "uuid": "^9.0.0",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
